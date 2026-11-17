@@ -142,8 +142,20 @@ class PagoPage {
         console.log('Se hizo clic en Más opciones.');
     }
 
+    // Dentro de mas opciones, marcar a "Otro Valor" y registrar el valor de pago.
+
+    async clickOtroValor(driver){
+        const botonOtroValor = await this.esperarElemento(
+            driver,
+            'new UiSelector().textMatches("(?i)^ *otro valor *$")',
+            'Otro valor'
+        );
+
+        await botonOtroValor.click();
+        console.log('Se hizo clic en Otro valor.');
+    }
+
 
 }
-
 
 module.exports = new PagoPage();

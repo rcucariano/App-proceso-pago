@@ -3,9 +3,7 @@ const { remote } = require('webdriverio');
 const InicioPage = require('../pages/InicioPage');
 const PagoPage = require('../pages/PagoPage');
 
-
 async function main() {
-
 
     const variablesRequeridas = [
         'DOCUMENTO_PRUEBA',
@@ -42,53 +40,39 @@ async function main() {
         }
     });
 
-
     try {
 
-
         console.log('¡Conexión exitosa con el dispositivo Android!');
-
-
-
 
         // 2. Esperamos hasta que aparezca el campo de documento.
         const campoDocumentoInicial = await driver.$(
             'android=new UiSelector().className("android.widget.EditText")'
         );
 
-
         await campoDocumentoInicial.waitForDisplayed({
             timeout: 30000
         });
 
-
-
-
         const pantalla = await driver.getPageSource();
-
 
         console.log('========== INICIO XML ==========');
         console.log(pantalla);
         console.log('========== FIN XML ==========');
-
 
         // 3. Buscar el texto de bienvenida
         const bienvenida = await driver.$(
             'android=new UiSelector().text("¡Bienvenido!")'
         );
 
-
         // 4. Buscar el campo de documento
         const campoDocumento = await driver.$(
             'android=new UiSelector().className("android.widget.EditText")'
         );
 
-
         // 5. Buscamos todos los campos de entrada de la pantalla.
         const camposTexto = await driver.$$(
             'android=new UiSelector().className("android.widget.EditText")'
         );
-
 
         // 6. Mostramos cuántos campos encontró Appium.
         console.log(
@@ -98,36 +82,28 @@ async function main() {
 
         console.log('DATOS DEL CAMPO DOCUMENTO:');
 
-
         console.log(
             'Clase:',
             await campoDocumento.getAttribute('class')
         );
-
 
         console.log(
             'Texto:',
             await campoDocumento.getAttribute('text')
         );
 
-
         console.log(
             'Resource ID:',
             await campoDocumento.getAttribute('resource-id')
         );
-
 
         console.log(
             'Content Description:',
             await campoDocumento.getAttribute('content-desc')
         );
 
-
         // 7. Ingresamos un documento de prueba utilizando nuestro Page Object.
         await InicioPage.ingresarDocumento(driver, process.env.DOCUMENTO_PRUEBA);
-
-
-
 
         // 8. Esperamos a que aparezca un segundo campo de entrada.
         await driver.waitUntil(
@@ -135,7 +111,6 @@ async function main() {
                 const campos = await driver.$$(
                     'android=new UiSelector().className("android.widget.EditText")'
                 );
-
 
                 return campos.length >= 2;
             },
@@ -146,7 +121,6 @@ async function main() {
             }
         );
 
-
         console.log('Se encontraron dos campos de entrada.');
 
         // 9. Ingresamos la contraseña mediante nuestro Page Object.
@@ -155,37 +129,30 @@ async function main() {
             process.env.CONTRASENA_PRUEBA
         );
 
-
         console.log('Ingreso de contraseña ejecutado.');
-
 
         // 10. Obtenemos todos los campos de entrada.
         const camposLogin = await driver.$$(
             'android=new UiSelector().className("android.widget.EditText")'
         );
 
-
         // 11.Consultamos los atributos del segundo campo.
         const campoContrasena = camposLogin[1];
-
 
         console.log(
             'Clase del segundo campo:',
             await campoContrasena.getAttribute('class')
         );
 
-
         console.log(
             'Es un campo de contraseña:',
             await campoContrasena.getAttribute('password')
         );
 
-
         console.log(
             'Resource ID:',
             await campoContrasena.getAttribute('resource-id')
         );
-
 
         console.log(
             'Content Description:',
@@ -202,18 +169,15 @@ async function main() {
             await bienvenida.isDisplayed()
         );
 
-
         console.log(
             'Campo documento visible:',
             await campoDocumento.isDisplayed()
         );
 
-
         console.log(
             'Botón Entrar visible:',
             await botonEntrar.isDisplayed()
         );
-
 
         // 14. Consultar estado del botón
         console.log(
@@ -221,19 +185,16 @@ async function main() {
             await botonEntrar.isEnabled()
         );
 
-
         // 15. Consultar propiedades del elemento
         console.log(
             'Texto del elemento:',
             await botonEntrar.getText()
         );
 
-
         console.log(
             'Atributo clickable:',
             await botonEntrar.getAttribute('clickable')
         );
-
 
         // 16. Hacer clic en el botón Entrar (al final, porque la pantalla cambia).
         await InicioPage.clickBotonEntrar(driver);
@@ -251,15 +212,15 @@ async function main() {
         // Al tocar PSE se despliegan "Pago mínimo" y "Más opciones".
         await PagoPage.seleccionarPSE(driver);
         await PagoPage.clickMasOpciones(driver);
+    
 
         // Inspección: mostramos lo que hay después de "Más opciones" para definir
         // el siguiente paso. Lo ideal es reemplazar la pausa por la espera de un
         // elemento conocido de esa pantalla.
-        await driver.pause(2000);
-        await PagoPage.imprimirTextosPantalla(driver, 'PANTALLA DESPUÉS DE MÁS OPCIONES');
+        //await driver.pause(2000);
+        //await PagoPage.imprimirTextosPantalla(driver, 'PANTALLA DESPUÉS DE MÁS OPCIONES');
 
     } finally {
-
 
         // 17. Cerrar la sesión de Appium
         //await driver.deleteSession();
@@ -268,7 +229,6 @@ async function main() {
 
     }
 }
-
 
 main().catch((error) => {
     console.error(error);
