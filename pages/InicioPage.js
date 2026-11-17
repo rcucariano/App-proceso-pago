@@ -96,6 +96,44 @@ class InicioPage {
     }
 
 
+    // Localiza el botón Entrar y espera a que esté visible y habilitado.
+    async obtenerBotonEntrar(driver) {
+        const botonEntrar = await driver.$(
+            'android=new UiSelector().text("Entrar")'
+        );
+
+        await botonEntrar.waitForDisplayed({
+            timeout: 20000,
+            timeoutMsg: 'No apareció el botón Entrar'
+        });
+
+        await driver.waitUntil(
+            async () => await botonEntrar.isEnabled(),
+            {
+                timeout: 15000,
+                interval: 500,
+                timeoutMsg: 'El botón Entrar no quedó habilitado'
+            }
+        );
+
+        return botonEntrar;
+    }
+
+
+    // Hace clic en el botón Entrar.
+    async clickBotonEntrar(driver) {
+        // El teclado puede tapar el botón; lo ocultamos si está abierto.
+        if (await driver.isKeyboardShown()) {
+            await driver.hideKeyboard();
+        }
+
+        const botonEntrar = await this.obtenerBotonEntrar(driver);
+        await botonEntrar.click();
+        await driver.pause(1500);
+        return botonEntrar;
+    }
+
+
 }
 
 
