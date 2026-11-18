@@ -15,7 +15,13 @@ const datosPrueba = {
     tipoDocumento: process.env.TIPO_DOCUMENTO || 'CC',
 
     // Valor a pagar en "Otro valor".
-    valorPago: Number(process.env.VALOR_PAGO || 1000)
+    valorPago: Number(process.env.VALOR_PAGO || 1000),
+
+    // Método de pago en el modal Confirmar Pago ("PSE" o "NEQUI").
+    metodoPago: process.env.METODO_PAGO || 'PSE',
+
+    // Banco de la lista de PSE, con el texto exacto que muestra el portal.
+    bancoPSE: process.env.BANCO_PSE || 'BANCOLOMBIA QA'
 };
 
 

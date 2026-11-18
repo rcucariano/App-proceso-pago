@@ -95,7 +95,7 @@ class PagoPage {
             driver,
             'new UiSelector().text("Pagar")',
             'Pagar',
-            60000 // Después del login el inicio puede tardar en cargar.
+            40000 // Después del login el inicio puede tardar en cargar.
         );
 
         await botonPagar.click();

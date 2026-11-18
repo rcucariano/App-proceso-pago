@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "appium": "appium --allow-insecure uiautomator2:chromedriver_autodownload",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

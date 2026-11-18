@@ -213,9 +213,32 @@ async function main() {
         await AloPayPage.ingresarDocumento(driver, datosPrueba.documento);
         await AloPayPage.clickConsultarDeuda(driver);
 
-        // Diagnóstico: lo que muestra el portal después de consultar.
-        await driver.pause(3000);
-        await AloPayPage.imprimirTextosPantalla(driver, 'PORTAL DESPUÉS DE CONSULTAR DEUDA');
+        // 21. Pantalla de pago del portal: Chrome ya no expone el contenido a
+        //     UiAutomator2, así que pasamos al contexto web (HTML real).
+        await AloPayPage.cambiarAContextoWeb(driver);
+        try {
+            await AloPayPage.imprimirPaginaWeb(driver, 'PORTAL DESPUÉS DE CONSULTAR DEUDA');
+
+            // 22. Marcar "Otro valor" y escribir el monto.
+            await AloPayPage.clickOtroValor(driver);
+            await AloPayPage.ingresarValorPago(driver, datosPrueba.valorPago);
+
+            // 23. Confirmar el pago dentro del portal.
+            console.log('Confirmando el pago con el botón Pagar del portal.');
+            await AloPayPage.clickBotonPagar(driver);
+
+            // 24. Modal Confirmar Pago: elegir PSE y el banco.
+            await AloPayPage.esperarModalConfirmarPago(driver);
+            await AloPayPage.seleccionarMetodoPago(driver, datosPrueba.metodoPago);
+            if (datosPrueba.metodoPago.toUpperCase() === 'PSE') {
+                await AloPayPage.seleccionarBancoPSE(driver, datosPrueba.bancoPSE);
+
+                // 25. El correo viene precargado y no se modifica: vamos a PSE.
+                await AloPayPage.clickIrAPSE(driver);
+            }
+        } finally {
+            await AloPayPage.volverAContextoNativo(driver);
+        }
 
     } finally {
 

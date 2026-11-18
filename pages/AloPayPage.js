@@ -142,11 +142,16 @@ class AloPayPage {
 
 
     // Estrategia 3: si la vista web no expone el input como EditText, buscamos la
-    // etiqueta "Número de Documento" y tomamos el elemento enfocable justo debajo.
-    async buscarCampoDebajoDeEtiqueta(driver) {
+    // etiqueta (por ejemplo "Número de Documento") y tomamos el elemento enfocable
+    // justo debajo de ella.
+    async buscarCampoDebajoDeEtiqueta(
+        driver,
+        regexEtiqueta = '(?i).*n[uú]mero de documento.*',
+        nombre = 'Número de Documento'
+    ) {
         const etiqueta = await PagoPage.buscarVisible(
             driver,
-            'new UiSelector().textMatches("(?i).*n[uú]mero de documento.*")'
+            `new UiSelector().textMatches("${regexEtiqueta}")`
         );
         if (!etiqueta) return null;
 
@@ -162,7 +167,8 @@ class AloPayPage {
                 const clase = (await candidato.getAttribute('class')) || '';
                 const texto = (await candidato.getAttribute('text')) || '';
                 if (clase.includes('Spinner') || clase.includes('Button')
-                    || /consultar deuda/i.test(texto)) {
+                    || clase.includes('CheckBox')
+                    || /consultar deuda|pagar/i.test(texto)) {
                     continue;
                 }
 
@@ -180,7 +186,7 @@ class AloPayPage {
         }
 
         if (mejor) {
-            console.log('Campo de documento ubicado debajo de la etiqueta "Número de Documento".');
+            console.log(`Campo ubicado debajo de la etiqueta "${nombre}".`);
         }
         return mejor;
     }
@@ -212,10 +218,16 @@ class AloPayPage {
         await driver.pause(1000);
 
         const campo = await this.obtenerCampoDocumento(driver);
+        await this.escribirEnCampo(driver, campo, documento);
+        console.log('Se ingresó el número de documento en el portal.');
+    }
+
+
+    // Toca el campo y escribe el valor. Al tocarlo, el input enfocado suele aparecer
+    // como EditText; si no, escribimos con el teclado directamente.
+    async escribirEnCampo(driver, campo, valor) {
         await campo.click();
 
-        // Al tocarlo, el input enfocado suele aparecer como EditText; si no,
-        // escribimos con el teclado directamente.
         const enfocado = await PagoPage.buscarVisible(
             driver,
             'new UiSelector().className("android.widget.EditText").focused(true)'
@@ -223,12 +235,10 @@ class AloPayPage {
 
         if (enfocado) {
             await enfocado.clearValue();
-            await enfocado.setValue(String(documento));
+            await enfocado.setValue(String(valor));
         } else {
-            await driver.keys(String(documento).split(''));
+            await driver.keys(String(valor).split(''));
         }
-
-        console.log('Se ingresó el número de documento en el portal.');
 
         try {
             if (await driver.isKeyboardShown()) {
@@ -249,6 +259,230 @@ class AloPayPage {
 
         await boton.click();
         console.log('Se hizo clic en Consultar Deuda.');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PANTALLA DE PAGO (/payments) — CONTEXTO WEB
+    //
+    // Después de Consultar Deuda, Chrome deja de exponer el contenido de la
+    // página a UiAutomator2: solo se ve el contenedor vacío "Vista web". Por eso
+    // desde aquí trabajamos en el contexto WEBVIEW_chrome (chromedriver), donde
+    // vemos el HTML real y usamos selectores web (XPath/CSS).
+    // Requiere iniciar Appium con:
+    //   appium --allow-insecure uiautomator2:chromedriver_autodownload
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // El portal dibuja DOS versiones de cada control: "-desktop" (oculta en el
+    // celular) y "-mobile" (la visible). Por eso buscamos por el inicio del
+    // data-testid y nos quedamos con la copia visible.
+    selectorTestId(prefijo) {
+        return `[data-testid^="${prefijo}"]`;
+    }
+
+
+    // Cambia al contexto web de Chrome y a la pestaña del portal de pagos.
+    async cambiarAContextoWeb(driver) {
+        let contextoWeb = null;
+
+        await driver.waitUntil(
+            async () => {
+                const contextos = await driver.getContexts();
+                contextoWeb = contextos
+                    .map((c) => (typeof c === 'string' ? c : c.id))
+                    .find((c) => c.includes('WEBVIEW_chrome') || c.includes('CHROMIUM'));
+                return Boolean(contextoWeb);
+            },
+            { timeout: 30000, interval: 1000, timeoutMsg: 'No apareció el contexto web de Chrome' }
+        );
+
+        await driver.switchContext(contextoWeb);
+
+        // Chrome puede tener varias pestañas abiertas: nos quedamos con la del portal.
+        for (const ventana of await driver.getWindowHandles()) {
+            await driver.switchToWindow(ventana);
+            if ((await driver.getUrl()).includes('pagos-pre.alocredit.co')) {
+                break;
+            }
+        }
+
+        console.log(`Contexto web activo (${contextoWeb}). URL: ${await driver.getUrl()}`);
+    }
+
+
+    async volverAContextoNativo(driver) {
+        try {
+            await driver.switchContext('NATIVE_APP');
+        } catch (error) {
+            // Si la sesión ya se cerró no hay nada que hacer.
+        }
+    }
+
+
+    // Diagnóstico en contexto web: texto visible y controles del formulario.
+    async imprimirPaginaWeb(driver, titulo) {
+        const info = await driver.execute(() => ({
+            texto: document.body.innerText,
+            controles: [...document.querySelectorAll('input, select, button, label')].map((e) =>
+                `${e.tagName} id="${e.id}" name="${e.name || ''}" type="${e.type || ''}" `
+                + `texto="${(e.innerText || e.value || e.placeholder || '').trim().slice(0, 50)}"`)
+        }));
+
+        console.log(`========== ${titulo} ==========`);
+        console.log(info.texto);
+        console.log('--- Controles ---');
+        console.log(info.controles.join('\n'));
+        console.log('='.repeat(titulo.length + 22));
+    }
+
+
+    // Espera a que alguna coincidencia del selector esté visible (y habilitada si
+    // se pide); si no aparece, imprime la página para diagnosticar.
+    async esperarElementoWeb(driver, selector, nombre, { timeout = 15000, habilitado = false } = {}) {
+        let elemento = null;
+
+        try {
+            await driver.waitUntil(
+                async () => {
+                    for (const candidato of await driver.$$(selector)) {
+                        if (await candidato.isDisplayed()
+                            && (!habilitado || await candidato.isEnabled())) {
+                            elemento = candidato;
+                            return true;
+                        }
+                    }
+                    return false;
+                },
+                { timeout, interval: 500 }
+            );
+        } catch (error) {
+            await this.imprimirPaginaWeb(driver, `NO SE ENCONTRÓ: ${nombre}`);
+            throw new Error(`No apareció el elemento "${nombre}" en el portal`);
+        }
+
+        await elemento.scrollIntoView({ block: 'center' });
+        return elemento;
+    }
+
+
+    // Dentro de ¿Cómo deseas pagar?, marcar "Otro valor".
+    async clickOtroValor(driver) {
+        const opcion = await this.esperarElementoWeb(
+            driver,
+            this.selectorTestId('payments-custom-payment-card'),
+            'Otro valor (portal)',
+            { timeout: 30000 } // La consulta de la deuda puede tardar en responder.
+        );
+
+        await opcion.click();
+        console.log('Se hizo clic en Otro valor (portal).');
+    }
+
+
+    // Escribe el valor a pagar en el input que aparece tras marcar "Otro valor".
+    async ingresarValorPago(driver, valor) {
+        const campo = await this.esperarElementoWeb(
+            driver,
+            this.selectorTestId('payments-custom-amount-input'),
+            'Campo de valor a pagar'
+        );
+
+        await campo.click();
+        await campo.clearValue();
+        await campo.setValue(String(valor));
+        console.log(`Se ingresó el valor de pago en el portal: ${valor}`);
+    }
+
+
+    // Botón "Pagar" del portal (puede habilitarse solo después de escribir el valor).
+    async clickBotonPagar(driver) {
+        const boton = await this.esperarElementoWeb(
+            driver,
+            this.selectorTestId('payments-continue-button'),
+            'Pagar (portal)',
+            { habilitado: true }
+        );
+
+        await boton.click();
+        console.log('Se hizo clic en Pagar (portal).');
+    }
+
+
+    // ─── Modal "Confirmar Pago" ───────────────────────────────────────────────
+
+    async esperarModalConfirmarPago(driver) {
+        await this.esperarElementoWeb(
+            driver,
+            '[data-testid="payments-checkout-modal"]',
+            'Modal Confirmar Pago'
+        );
+        console.log('Se abrió el modal Confirmar Pago.');
+    }
+
+
+    // Elige el método de pago dentro del modal: "PSE" o "NEQUI".
+    async seleccionarMetodoPago(driver, metodo = 'PSE') {
+        const boton = await this.esperarElementoWeb(
+            driver,
+            `[data-testid="payments-method-option-button-${metodo.toUpperCase()}"]`,
+            `Método de pago ${metodo}`
+        );
+
+        await boton.click();
+        console.log(`Se seleccionó el método de pago: ${metodo}`);
+    }
+
+
+    // Selecciona el banco en la lista de PSE por su texto visible exacto
+    // (por ejemplo "BANCO UNION COLOMBIANO").
+    async seleccionarBancoPSE(driver, banco) {
+        const lista = await this.esperarElementoWeb(
+            driver,
+            '[data-testid="payments-pse-bank-select"]',
+            'Lista de bancos PSE'
+        );
+
+        // La lista se llena desde el servidor: esperamos a que tenga opciones.
+        await driver.waitUntil(
+            async () => (await lista.$$('option')).length > 1,
+            { timeout: 15000, interval: 500, timeoutMsg: 'La lista de bancos PSE no cargó opciones' }
+        );
+
+        const opciones = await driver.execute(
+            (select) => [...select.options].map((o) => o.text.trim()),
+            lista
+        );
+
+        if (!opciones.includes(banco)) {
+            console.log('Bancos disponibles:\n' + opciones.slice(1).join('\n'));
+            throw new Error(`El banco "${banco}" no está en la lista de PSE`);
+        }
+
+        await lista.selectByVisibleText(banco);
+        console.log(`Se seleccionó el banco: ${banco}`);
+    }
+
+
+    // Clic en "Ir a PSE". El botón está deshabilitado hasta que el formulario
+    // (banco y correo precargado) es válido, por eso esperamos a que se habilite.
+    async clickIrAPSE(driver) {
+        const boton = await this.esperarElementoWeb(
+            driver,
+            '[data-testid="payments-checkout-submit-button"]',
+            'Ir a PSE',
+            { habilitado: true }
+        );
+
+        const urlAntes = await driver.getUrl();
+        await boton.click();
+        console.log('Se hizo clic en Ir a PSE.');
+
+        // Esperamos a que el portal redirija a PSE (no falla si no cambia la URL).
+        await driver.waitUntil(
+            async () => (await driver.getUrl()) !== urlAntes,
+            { timeout: 30000, interval: 1000 }
+        ).catch(() => console.log('La URL no cambió después de Ir a PSE.'));
+
+        console.log('URL después de Ir a PSE:', await driver.getUrl());
     }
 }
 
