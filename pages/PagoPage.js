@@ -144,15 +144,40 @@ class PagoPage {
 
     // Dentro de mas opciones, marcar a "Otro Valor" y registrar el valor de pago.
 
-    async clickOtroValor(driver){
+    async clickOtroValor(driver) {
+        // Más permisivo: el texto puede venir como "Otro valor:", "Pagar otro valor", etc.
         const botonOtroValor = await this.esperarElemento(
             driver,
-            'new UiSelector().textMatches("(?i)^ *otro valor *$")',
+            'new UiSelector().textMatches("(?i).*otro +valor.*")',
             'Otro valor'
         );
 
         await botonOtroValor.click();
         console.log('Se hizo clic en Otro valor.');
+    }
+
+
+    // Escribe el valor a pagar en el campo que aparece tras marcar "Otro valor".
+    async ingresarValorPago(driver, valor) {
+        const campoValor = await this.esperarElemento(
+            driver,
+            'new UiSelector().className("android.widget.EditText")',
+            'Campo de valor a pagar'
+        );
+
+        await campoValor.click();
+        await campoValor.clearValue();
+        await campoValor.setValue(String(valor));
+        console.log(`Se ingresó el valor de pago: ${valor}`);
+
+        // Cerramos el teclado para que no tape el siguiente botón.
+        try {
+            if (await driver.isKeyboardShown()) {
+                await driver.hideKeyboard();
+            }
+        } catch (error) {
+            // Algunos teclados no permiten ocultarse; no es crítico.
+        }
     }
 
 

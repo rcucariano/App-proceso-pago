@@ -2,23 +2,12 @@ const { remote } = require('webdriverio');
 // Importamos nuestro Page Object de la pantalla inicial.
 const InicioPage = require('../pages/InicioPage');
 const PagoPage = require('../pages/PagoPage');
+const AloPayPage = require('../pages/AloPayPage');
+const { datosPrueba, validarDatosPrueba } = require('../data/datosPrueba');
 
 async function main() {
 
-    const variablesRequeridas = [
-        'DOCUMENTO_PRUEBA',
-        'CONTRASENA_PRUEBA'
-    ];
-    const variablesFaltantes = variablesRequeridas.filter(
-        (nombre) => !process.env[nombre]
-    );
-
-
-    if (variablesFaltantes.length > 0) {
-        throw new Error(
-            `Configura estas variables de entorno antes de ejecutar la prueba: ${variablesFaltantes.join(', ')}`
-        );
-    }
+    validarDatosPrueba();
 
     // 1. Conectarnos al dispositivo Android
     const driver = await remote({
@@ -103,7 +92,7 @@ async function main() {
         );
 
         // 7. Ingresamos un documento de prueba utilizando nuestro Page Object.
-        await InicioPage.ingresarDocumento(driver, process.env.DOCUMENTO_PRUEBA);
+        await InicioPage.ingresarDocumento(driver, datosPrueba.documento);
 
         // 8. Esperamos a que aparezca un segundo campo de entrada.
         await driver.waitUntil(
@@ -126,7 +115,7 @@ async function main() {
         // 9. Ingresamos la contraseña mediante nuestro Page Object.
         await InicioPage.ingresarContrasena(
             driver,
-            process.env.CONTRASENA_PRUEBA
+            datosPrueba.contrasena
         );
 
         console.log('Ingreso de contraseña ejecutado.');
@@ -205,27 +194,34 @@ async function main() {
         console.log('Iniciando búsqueda del botón Pagar.');
         await PagoPage.clickBotonPagar(driver);
 
-        // Mostramos los medios de pago disponibles (diagnóstico).
-        await driver.pause(2000);
-        await PagoPage.imprimirTextosPantalla(driver, 'ELEMENTOS DE LA PANTALLA DE PAGO');
-
         // Al tocar PSE se despliegan "Pago mínimo" y "Más opciones".
         await PagoPage.seleccionarPSE(driver);
         await PagoPage.clickMasOpciones(driver);
-    
 
-        // Inspección: mostramos lo que hay después de "Más opciones" para definir
-        // el siguiente paso. Lo ideal es reemplazar la pausa por la espera de un
-        // elemento conocido de esa pantalla.
-        //await driver.pause(2000);
-        //await PagoPage.imprimirTextosPantalla(driver, 'PANTALLA DESPUÉS DE MÁS OPCIONES');
+        // 18. Dentro de Más opciones: marcar "Otro valor" y escribir el monto.
+        await PagoPage.clickOtroValor(driver);
+        await PagoPage.ingresarValorPago(driver, datosPrueba.valorPago);
+
+        // 19. Confirmar el pago: abre el portal pagos-pre.alocredit.co en el navegador.
+        console.log('Confirmando el pago con el botón Pagar.');
+        await PagoPage.clickBotonPagar(driver);
+
+        // 20. Portal de pagos: tipo de documento, documento y Consultar Deuda.
+        await AloPayPage.esperarCargaPortal(driver);
+        // Se usa el mismo documento con el que se inició sesión en la app.
+        await AloPayPage.seleccionarTipoDocumento(driver, datosPrueba.tipoDocumento);
+        await AloPayPage.ingresarDocumento(driver, datosPrueba.documento);
+        await AloPayPage.clickConsultarDeuda(driver);
+
+        // Diagnóstico: lo que muestra el portal después de consultar.
+        await driver.pause(3000);
+        await AloPayPage.imprimirTextosPantalla(driver, 'PORTAL DESPUÉS DE CONSULTAR DEUDA');
 
     } finally {
 
         // 17. Cerrar la sesión de Appium
         //await driver.deleteSession();
         console.log('Sesión de Appium finalizada.');
-
 
     }
 }
