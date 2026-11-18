@@ -2,11 +2,6 @@
 // La app abre el portal en el navegador; lo manejamos con UiAutomator2 (contexto
 // NATIVE_APP), que lee el árbol de accesibilidad de Chrome. Así no necesitamos
 // chromedriver ni cambiar de contexto.
-//
-// Estructura del formulario (HTML del portal):
-//   <select id="login-doc-type">  -> Tipo de Documento (por defecto "Cédula de Ciudadanía")
-//   <input  id="login-dni">       -> Número de Documento (solo números, máx. 10)
-//   <button>Consultar Deuda</button>
 
 // Reutilizamos las esperas y el diagnóstico ya definidos en PagoPage.
 const PagoPage = require('./PagoPage');
@@ -221,7 +216,6 @@ class AloPayPage {
         await this.escribirEnCampo(driver, campo, documento);
         console.log('Se ingresó el número de documento en el portal.');
     }
-
 
     // Toca el campo y escribe el valor. Al tocarlo, el input enfocado suele aparecer
     // como EditText; si no, escribimos con el teclado directamente.
@@ -482,7 +476,9 @@ class AloPayPage {
             { timeout: 30000, interval: 1000 }
         ).catch(() => console.log('La URL no cambió después de Ir a PSE.'));
 
-        console.log('URL después de Ir a PSE:', await driver.getUrl());
+        const urlDespues = await driver.getUrl();
+        console.log('URL después de Ir a PSE:', urlDespues);
+        return urlDespues;
     }
 }
 
